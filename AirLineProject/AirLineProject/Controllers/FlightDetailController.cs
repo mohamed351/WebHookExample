@@ -1,8 +1,10 @@
 ﻿using AirLineProject.Dtos;
+using AirLineProject.MessageBus;
 using AirLineProject.Models;
 using AutoMapper;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using System;
 using System.Linq;
 
 namespace AirLineProject.Controllers
@@ -13,11 +15,13 @@ namespace AirLineProject.Controllers
     {
         private readonly AirlineDbContext context;
         private readonly IMapper mapper;
+        private readonly IMessageBusClient client;
 
-        public FlightDetailController(AirlineDbContext context , IMapper mapper)
+        public FlightDetailController(AirlineDbContext context , IMapper mapper , IMessageBusClient client)
         {
             this.context = context;
             this.mapper = mapper;
+            this.client = client;
         }
         [HttpGet("{id}",Name = "GetDetails")]
         public ActionResult<FlightDetailReadDTO> GetDetails(int id)
@@ -40,7 +44,7 @@ namespace AirLineProject.Controllers
           var newDetail=  this.mapper.Map<FlightDetail>(createDTO);
             this.context.FlightDetails.Add(newDetail);
             this.context.SaveChanges();
-            return CreatedAtAction(nameof(GetDetails), new { id = newDetail.Id }, createDTO);
+            return CreatedAtAction(nameof(GetDetails), new { id = newDetail.Id }, newDetail);
 
         }
         [HttpPut("{id}")]
@@ -51,8 +55,34 @@ namespace AirLineProject.Controllers
             {
                 return BadRequest();
             }
+            decimal oldPrice = flight.Price;
+
             mapper.Map(createDTO, flight);
-            context.SaveChanges();
+            try
+            {
+                context.SaveChanges();
+                if(oldPrice != flight.Price)
+                {
+                    Console.WriteLine("Price Changed ");
+                    var message = new NotificationMessageDTO()
+                    {
+                        WebhookType ="price change",
+                        FligthCode = flight.FlightCode,
+                        OldPrice = oldPrice,
+                        NewPrice = flight.Price,
+                      
+
+                    };
+                    client.SendMessage(message);
+                }
+
+            }
+            catch (System.Exception ex)
+            {
+
+                return BadRequest(ex.Message);
+            }
+          
             return NoContent();
 
         }

@@ -1,3 +1,4 @@
+using AirLineProject.MessageBus;
 using AirLineProject.Models;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -41,6 +42,8 @@ namespace AirLineProject
             {
                 a.UseSqlServer(Configuration.GetConnectionString("DefaultConnection"));
             });
+
+            services.AddSingleton<IMessageBusClient, MessageBusClient>();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -54,6 +57,7 @@ namespace AirLineProject
             }
 
             app.UseHttpsRedirection();
+            app.UseStaticFiles();
 
             app.UseRouting();
 
